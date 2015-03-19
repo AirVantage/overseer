@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"sort"
+	"time"
 	"strings"
 	"text/template"
 	"path/filepath"
@@ -88,7 +89,7 @@ func init() {
 
 }
 
-func main() {
+func iterate() {
 
 	log.Println("Start iteration")
 
@@ -189,4 +190,11 @@ func main() {
 
 	log.Println("Iteration done")
 	
+}
+
+func main(){
+	for {
+		iterate()
+		time.Sleep(time.Duration(interval)*time.Second)
+	}
 }
