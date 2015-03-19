@@ -2,7 +2,8 @@ package main
 
 import (
 	"os"
-	"fmt"
+	"os/exec"
+	"log"
 	"net"
 	"sort"
 	"strings"
@@ -17,7 +18,7 @@ var (
 
 	resourcesDirName = "/etc/overseer/resources"
 	templatesDirName = "/etc/overseer/templates"
-	stateFileName     = "/var/overseer/state.toml"
+	stateFileName    = "/var/overseer/state.toml"
 	interval         = 60
 
 	resources = make(map[string]map[*Resource]bool)
@@ -30,35 +31,42 @@ type ResourceConfig struct {
 }
 
 type Resource struct {
-	Src   string
-	Dest  string
-	Hosts []string
-	Uid int
-	Gid int
-	Mode string
+	Src       string
+	Dest      string
+	Hosts     []string
+	Uid       int
+	Gid       int
+	Mode      string
 	ReloadCmd string `toml:"reload_cmd"`
-	Domain string
+	Domain    string
 }
 
+func init() {
 
-func main() {
+	log.Println("Start init")
 
-	//load resources files and create index "domain name" -> "resource to generate" 
+	// -----------------------------------------------------------------------------
+	// load resources files and create index "domain name" -> "resource to generate"
+	// -----------------------------------------------------------------------------
+
+	log.Println("Load resources from", resourcesDirName)
+
 	resourcesDir, err := os.Open(resourcesDirName)
 	defer func(){resourcesDir.Close()}()
-	if err != nil { panic(err) }
+	if err != nil { log.Fatal(err) }
 
 	resourcesFiles, err := resourcesDir.Readdir(0)
-	if err != nil { panic(err) }
+	if err != nil { log.Fatal(err) }
 
-	
 	for _, resourceFile := range resourcesFiles {
 		
 		if filepath.Ext(resourceFile.Name()) != ".toml" ||  resourceFile.IsDir() {continue}
 		
 		var rc *ResourceConfig
 		_, err := toml.DecodeFile(filepath.Join(resourcesDirName, resourceFile.Name()), &rc)
-		if err != nil { panic(err) }
+		if err != nil { log.Fatal(err) }
+
+		log.Println("Read File", resourceFile.Name(), ":", rc)
 
 		for _, host := range rc.Resource.Hosts {
 			host = strings.Join([]string{host, rc.Resource.Domain}, ".")
@@ -67,35 +75,62 @@ func main() {
 		}
 	}
 
-	fmt.Println(resources)
+	// ---------------
+	// load state file
+	// ---------------
 
-	//load state file
 	_, err = toml.DecodeFile(stateFileName, &state)
-	if err != nil && !os.IsNotExist(err) { panic(err) }
-	
+	if err != nil && !os.IsNotExist(err) { log.Fatal(err) }	
+
+	log.Println("Load state from", stateFileName, ":", state)
+
+	log.Println("Init done")
+
+}
+
+func main() {
+
+	log.Println("Start iteration")
+
+	log.Println("Find Resources to update")
 
 	resourcesToUpdate := make(map[*Resource]bool)
 	newState := make(map[string]map[string]bool)
-	//find ips to change
+	
+	//find host ips to update
 	for host, resourcesset := range resources {
+		
 		ips, err := net.LookupIP(host)
-		if err != nil { panic(err) }
+		if err != nil { log.Fatal(err) }
 		newState[host] = make(map[string]bool)
+
+		changed := false
+		
 		for _, ip := range ips {
 			newState[host][ip.String()] = true
-			if _, stateOk := state[host][ip.String()]; !stateOk{
-				for resource, v := range resourcesset {
-					resourcesToUpdate[resource] = v
-				}
+			if _, stateOk := state[host][ip.String()]; !stateOk {
+				changed = true
+				log.Println("For host", host, "new IP:", ip)
 			}
 
 		}
 
-	}
+		for oldIp, _ := range state[host] {
+			if _, stateOk := newState[host][oldIp]; !stateOk {
+				changed = true
+				log.Println("For host", host, "deprecated IP:", oldIp)
+			}
+		}
 
-	fmt.Println(resourcesToUpdate)
-	fmt.Println(state)
-	fmt.Println(newState)
+		if changed {
+			for resource, v := range resourcesset {
+				log.Println("For host", host, "update ressource:", resource)
+				resourcesToUpdate[resource] = v
+			}			
+		}
+
+
+	}
 
 
 	//make list of ips
@@ -107,18 +142,39 @@ func main() {
 		}
 		sort.Strings(ipsList)
 		ips[host] = ipsList
-	} 
+	}
 
-
+	log.Println("Update resources and restart processes")
 	//generate resources
 	for resource, _ := range resourcesToUpdate {
+		
 		tmpl, err := template.ParseFiles(filepath.Join(templatesDirName, resource.Src))
-		if err != nil { panic(err) }
+		if err != nil { log.Fatal(err) }
 		destFile, err := os.Create(resource.Dest)
 		defer func(){destFile.Close()}()
-		if err != nil { panic(err) }
+		if err != nil { log.Fatal(err) }
 		err = tmpl.Execute(destFile, ips)
-		if err != nil { panic(err) }
+		if err != nil { log.Fatal(err) }
+		log.Println("For resource", resource, "update file", resource.Dest)
+
+		if resource.ReloadCmd == "" {continue}
+
+		cmdSplit := strings.Fields(resource.ReloadCmd)
+		cmd := exec.Command(cmdSplit[0], cmdSplit[1:]...)
+		log.Println(cmd)
+	    err = cmd.Start()
+	    if err != nil {
+	    	log.Fatal(err)
+	    }
+	    log.Println("For resource", resource, "start reload cmd", resource.ReloadCmd)
+	    err = cmd.Wait()
+	    if err != nil {
+	    	log.Println("For resource", resource, "reload cmd", resource.ReloadCmd, "finished with error", err)
+	    } else {
+	    	log.Println("For resource", resource, "reload cmd", resource.ReloadCmd, "finished successfuly")
+	    }
+	    
+
 	}
 
 
@@ -126,31 +182,11 @@ func main() {
 	//write state file
 	stateFile, err := os.Create(stateFileName)
 	defer func(){stateFile.Close()}()
-	if err != nil { panic(err) }
+	if err != nil { log.Fatal(err) }
 	err = toml.NewEncoder(stateFile).Encode(&newState)
 	state = newState
+	log.Println("Log state", state, "in file", state)
+
+	log.Println("Iteration done")
 	
 }
-
-
-
-// func main() {
-
-// 	host := os.Args[1]
-	
-// 	ips, err := net.LookupIP(host)
-// 	if err != nil { panic(err) }
-
-// 	ipStrings := make([]string, len(ips))
-// 	for index, value := range ips {
-// 		ipStrings[index]=value.String()
-// 	}
-// 	sort.Strings(ipStrings)
-
-// 	tmpl, err := template.ParseGlob("*.tmpl")
-// 	if err != nil { panic(err) }
-
-// 	err = tmpl.Execute(os.Stdout, ipStrings)
-// 	if err != nil { panic(err) }
-	
-// }
