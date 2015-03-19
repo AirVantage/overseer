@@ -160,8 +160,9 @@ func iterate() {
 
 		if resource.ReloadCmd == "" {continue}
 
-		cmdSplit := strings.Fields(resource.ReloadCmd)
-		cmd := exec.Command(cmdSplit[0], cmdSplit[1:]...)
+		//cmdSplit := strings.Fields(resource.ReloadCmd)
+		//cmd := exec.Command(cmdSplit[0], cmdSplit[1:]...)
+		cmd := exec.Command("bash", "-c", resource.ReloadCmd)
 		log.Println(cmd)
 	    err = cmd.Start()
 	    if err != nil {
@@ -177,8 +178,6 @@ func iterate() {
 	    
 
 	}
-
-
 
 	//write state file
 	stateFile, err := os.Create(stateFileName)
