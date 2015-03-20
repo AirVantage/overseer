@@ -1,0 +1,4 @@
+#! /bin/bash
+docker run --rm -v "$(pwd)":/go/src/github.com/AirVantage/overseer/ -w /go/src/github.com/AirVantage/overseer/ -e GOOS=windows -e GOARCH=386 golang:1.4.1-cross sh -c "go get github.com/BurntSushi/toml && go build -v -o overseer-windows-386"
+docker run --rm -v "$(pwd)":/go/src/github.com/AirVantage/overseer/ -w /go/src/github.com/AirVantage/overseer/ -e GOOS=darwin -e GOARCH=amd64 golang:1.4.1-cross sh -c "go get github.com/BurntSushi/toml && go build -v -o overseer-darwin-amd64"
+docker run --rm -v "$(pwd)":/go/src/github.com/AirVantage/overseer/ -w /go/src/github.com/AirVantage/overseer/ -e GOOS=linux -e GOARCH=amd64 golang:1.4.1-cross sh -c "go get github.com/BurntSushi/toml && go build -v -o overseer-linux-amd64"
