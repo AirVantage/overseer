@@ -22,9 +22,6 @@ var (
 	stateFileName    = "/var/overseer/state.toml"
 	interval         = 60
 
-	resources = make(map[string]map[*Resource]bool)
-	state     = make(map[string]map[string]bool)
-
 )
 
 type ResourceConfig struct {
@@ -42,16 +39,14 @@ type Resource struct {
 	Domain    string
 }
 
-func init() {
+func iterate() {
 
-	log.Println("Start init")
+	log.Println("Start iteration")
 
-	// -----------------------------------------------------------------------------
-	// load resources files and create index "domain name" -> "resource to generate"
-	// -----------------------------------------------------------------------------
+	resources := make(map[string]map[*Resource]bool)
+	state     := make(map[string]map[string]bool)
 
-	log.Println("Load resources from", resourcesDirName)
-
+	//load resources definition files
 	resourcesDir, err := os.Open(resourcesDirName)
 	defer func(){resourcesDir.Close()}()
 	if err != nil { log.Fatal(err) }
@@ -76,12 +71,7 @@ func init() {
 		}
 	}
 
-	// ---------------
-	// load state file
-	// ---------------
-
-	// create file path if it does not exist
-
+	//load state file
 	err = os.MkdirAll(filepath.Dir(stateFileName), 0777)
 	if err != nil { log.Fatal(err) }
 
@@ -90,13 +80,7 @@ func init() {
 
 	log.Println("Load state from", stateFileName, ":", state)
 
-	log.Println("Init done")
 
-}
-
-func iterate() {
-
-	log.Println("Start iteration")
 
 	log.Println("Find Resources to update")
 
@@ -192,7 +176,7 @@ func iterate() {
 	if err != nil { log.Fatal(err) }
 	err = toml.NewEncoder(stateFile).Encode(&newState)
 	state = newState
-	log.Println("Log state", state, "in file", state)
+	log.Println("Log state", state, "in file", stateFileName)
 
 	log.Println("Iteration done")
 	
