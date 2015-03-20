@@ -80,6 +80,11 @@ func init() {
 	// load state file
 	// ---------------
 
+	// create file path if it does not exist
+
+	err = os.MkdirAll(filepath.Dir(stateFileName), 0777)
+	if err != nil { log.Fatal(err) }
+
 	_, err = toml.DecodeFile(stateFileName, &state)
 	if err != nil && !os.IsNotExist(err) { log.Fatal(err) }	
 
@@ -151,6 +156,8 @@ func iterate() {
 		
 		tmpl, err := template.ParseFiles(filepath.Join(templatesDirName, resource.Src))
 		if err != nil { log.Fatal(err) }
+		err = os.MkdirAll(filepath.Dir(resource.Dest), 0777)
+	    if err != nil { log.Fatal(err) }
 		destFile, err := os.Create(resource.Dest)
 		defer func(){destFile.Close()}()
 		if err != nil { log.Fatal(err) }
