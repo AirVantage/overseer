@@ -20,7 +20,7 @@ var (
 	resourcesDirName = "/etc/overseer/resources"
 	templatesDirName = "/etc/overseer/templates"
 	stateFileName    = "/var/overseer/state.toml"
-	interval         = 60
+	interval         = 30
 
 )
 
