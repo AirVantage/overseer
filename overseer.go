@@ -90,8 +90,19 @@ func iterate() {
 	//find host ips to update
 	for host, resourcesset := range resources {
 		
+		//substitute hostname element by var env if existing
+		hostElements := strings.Split(host, ".")
+		for index, element := range hostElements {
+			envSubs := os.Getenv(element)
+			if envSubs != "" {
+				hostElements[index] = envSubs
+			} 
+		}
+		host = strings.Join(hostElements, ".")
+
 		ips, err := net.LookupIP(host)
 		if err != nil { log.Fatal(err) }
+
 		newState[host] = make(map[string]bool)
 
 		changed := false
