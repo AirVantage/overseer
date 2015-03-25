@@ -98,9 +98,9 @@ func iterate() {
 				hostElements[index] = envSubs
 			} 
 		}
-		host = strings.Join(hostElements, ".")
+		subsHost := strings.Join(hostElements, ".")
 
-		ips, err := net.LookupIP(host)
+		ips, err := net.LookupIP(subsHost)
 		if err != nil { log.Fatal(err) }
 
 		newState[host] = make(map[string]bool)
