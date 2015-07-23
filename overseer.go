@@ -103,7 +103,10 @@ func iterate() {
 		subsHost := strings.Join(hostElements, ".")
 
 		ips, err := net.LookupIP(subsHost)
-		if err != nil { log.Fatal(err) }
+		if err != nil { 
+			log.Println(err)
+			ips = []net.IP{}
+		}
 
 		newState[host] = make(map[string]bool)
 
