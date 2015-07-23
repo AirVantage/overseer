@@ -65,7 +65,9 @@ func iterate() {
 		log.Println("Read File", resourceFile.Name(), ":", rc)
 
 		for _, host := range rc.Resource.Hosts {
-			host = strings.Join([]string{host, rc.Resource.Domain}, ".")
+			if rc.Resource.Domain != ""{
+				host = strings.Join([]string{host, rc.Resource.Domain}, ".")	
+			}
 			if resources[host] == nil {resources[host]=make(map[*Resource]bool)}
 			resources[host][&rc.Resource] = true
 		}
